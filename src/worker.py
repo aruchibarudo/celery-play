@@ -26,7 +26,7 @@ def fail(self, x, y):
   self.update_state(state=states.state('PROGRESS'), meta={'task': self.name})
   sleep(2)
   logger.error('Error as expected')
-  raise TaskException((self.name, 'Failed task'))
+  raise TaskException('Failed task', self.name)
 
 
 @app.task(name='_Success', bind=True)
