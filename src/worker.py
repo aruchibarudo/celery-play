@@ -9,6 +9,7 @@ REDIS = 'redis://localhost/0'
 logger = logging.getLogger(__name__)
 
 app = Celery('worker', broker=REDIS, backend=REDIS)
+app.conf.update(result_extended=True)
 
 
 @app.task(name='_Add', bind=True)
