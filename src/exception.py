@@ -1,4 +1,4 @@
-class TaskException(Exception):
+class VMSTaskException(Exception):
   task_name: str = None
   
   def __init__(self, task_name: str=None, *args: object) -> None:
