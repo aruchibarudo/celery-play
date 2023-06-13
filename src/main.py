@@ -35,7 +35,8 @@ def unpack_chain(nodes: AsyncResult):
 def unpack_states(task) -> List[VMSTaskState]:
     overall_state = []
 
-    for result in unpack_chain(task):
+    for task_id in task:
+        result = AsyncResult(task_id)
         meta = result._get_task_meta()
         task_name = result.name or 'UNKNOWN'
         task_detail = None
@@ -45,7 +46,7 @@ def unpack_states(task) -> List[VMSTaskState]:
             task_name = task_name
             task_detail = meta['result'].get('detail')
         elif result.state in states.FAILURE:
-            task_name = meta['result'].task_name
+            task_name = task_name
             task_detail = str(meta['result'])
             
         overall_state.append(VMSTaskState(name=task_name, state=result.state, task_id=result.task_id, detail=task_detail))
@@ -53,37 +54,43 @@ def unpack_states(task) -> List[VMSTaskState]:
     return overall_state
         
 
-def get_task_state(task_id) -> VMSTaskResult:
-    task = AsyncResult(task_id)
-    result = VMSTaskResult(pool_id=uuid4(), pool_name='Test_name', state=task.state,
-                           tasks=unpack_states(task=task))
+def get_task_state(task_id: list) -> VMSTaskResult:
+    task = AsyncResult(task_id[0])
+    task_main_state = task.state
+    task_states = unpack_states(task=task_id)
+    task_states.reverse()
+    result = VMSTaskResult(pool_id=uuid4(), pool_name='Test_name',
+                           state=task_main_state,
+                           tasks=task_states)
     
     if task.ready():
         try:
-            rc, stdout, stderr = task.get(timeout=1)
+            rc = task.get(timeout=1)
             return result.dict()
         except VMSTaskException as exc:
             return result.dict()
-        except Exception as exc:
-            return (task.state, 255, None, str(exc))
+#        except Exception as exc:
+#            return (task.state, 255, None, str(exc))
     else:
         return result.dict()
     
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-task = pipeline_ok(2, 2).delay()
+task = pipeline_fail(2, 2).delay()
 ids = task.as_list()
+#ids.reverse()
 print(ids)
 
 
 while(True):
   #result = restore(ids)
   
-  overall_state = get_task_state(task_id=task.task_id)
+  overall_state = get_task_state(task_id=ids)
   
   sleep(1)
   if task.ready():
+    overall_state = get_task_state(task_id=ids)
     break
 
 print('Ready')

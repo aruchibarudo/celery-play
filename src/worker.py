@@ -9,6 +9,7 @@ REDIS = 'redis://localhost/0'
 logger = logging.getLogger(__name__)
 
 app = Celery('worker', broker=REDIS, backend=REDIS)
+app.conf.update(ignore_result=False, result_extended=True, task_track_started=True)
 
 
 @app.task(name='_Add', bind=True)
@@ -34,8 +35,14 @@ def success(self, res):
   logger.info('Task is finished')
   self.update_state(state=states.state('PROGRESS'), meta={'task': self.name, 'detail': "Success"})
   sleep(2)
-  self.update_state(state=states.SUCCESS, meta={'task': self.name})
-  return res
+  #self.update_state(state=states.SUCCESS, meta={'task': self.name})
+  return {
+    'result': {
+      'task': self.name,
+      'result': res,
+      'detail': "Success"
+    }
+  }
 
 
 @app.task(name='_Error', bind=True)
@@ -53,7 +60,7 @@ def pipeline_ok(x, y):
 
 def pipeline_fail(x, y):
   logger.info('Start pipeline_fail')
-  chain = (add.si(x, y) | fail.s(4) | success.s()).on_error(error.s())
+  chain = (add.si(x, y) | fail.s(4) | add.s(6) | success.s()).on_error(error.s())
   return chain
 
 
